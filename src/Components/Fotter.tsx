@@ -3,9 +3,9 @@ import React from 'react'
 
 const Fotter = () => {
   return (
-    <footer className=" text-black py-16">
+    <footer className="py-10 text-black sm:py-16">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="grid grid-cols-4 gap-8 mb-12">
+          <div className="mb-10 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4 lg:mb-12">
             <div>
               <div className="flex items-center text-gray-600 mb-6">
                 <BookOpen className="h-8 w-8 text-blue-500" />
@@ -106,11 +106,11 @@ const Fotter = () => {
               </ul>
             </div>
           </div>
-          <div className="flex justify-between items-center pt-8 border-t border-gray-700">
+          <div className="flex flex-col gap-4 border-t border-gray-300 pt-8 md:flex-row md:items-center md:justify-between">
             <p className="text-gray-400">
               © 2024 Coursera Inc. All rights reserved.
             </p>
-            <div className="flex space-x-6">
+            <div className="flex flex-wrap gap-x-6 gap-y-2">
               <a href="#" className="text-gray-600 hover:text-black">
                 Terms
               </a>

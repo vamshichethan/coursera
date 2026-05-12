@@ -65,28 +65,28 @@ const index = () => {
     },
   ];
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-6xl mx-auto ">
+    <div className="min-h-screen bg-gray-50 px-4 py-6 sm:py-8">
+      <div className="mx-auto max-w-6xl">
         <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h1 className="text-2xl font-bold">My Certificates</h1>
               <p className="text-gray-600 mt-1">
                 Track your learning achievements and credentials
               </p>
             </div>
-            <button className="px-4 py-2 bg-[#0056D2] text-white rounded-md hover:bg-blue-700 transition-colors">
+            <button className="rounded-md bg-[#0056D2] px-4 py-2 text-white transition-colors hover:bg-blue-700">
               Browse More Courses
             </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-6 mb-8">
+        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
           <div className="bg-white rounded-lg shadow-sm p-6">
             <div className="flex items-center space-x-3">
               <Award className="h-8 w-8 text-blue-600" />
               <div>
-                <p className="text-gray-600">Total Certificate</p>
+                <p className="text-gray-600">Total Certificates</p>
                 <p className="text-2xl font-bold">3</p>
               </div>
             </div>
@@ -95,7 +95,7 @@ const index = () => {
             <div className="flex items-center space-x-3">
               <Clock className="h-8 w-8 text-blue-600" />
               <div>
-                <p className="text-gray-600">Lwarning Hours</p>
+                <p className="text-gray-600">Learning Hours</p>
                 <p className="text-2xl font-bold">460</p>
               </div>
             </div>
@@ -124,10 +124,10 @@ const index = () => {
           {certificates.map((cert) => (
             <div
               key={cert.id}
-              className="bg-white rounded-lg shadow-sm everflow-hidden"
+              className="overflow-hidden rounded-lg bg-white shadow-sm"
             >
-              <div className="flex">
-                <div className="w-64 h-48">
+              <div className="flex flex-col md:flex-row">
+                <div className="h-48 w-full md:w-64 md:flex-shrink-0">
                   <img
                     src={cert.image}
                     alt=""
@@ -135,37 +135,37 @@ const index = () => {
                   />
                 </div>
                 <div className="flex-1 p-6">
-                  <div className="flex justify-between">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:justify-between">
                     <div>
                       <h2 className="text-xl font-semibold">{cert.name}</h2>
                       <p className="text-gray-600">{cert.provider}</p>
                     </div>
-                    <div className="flex space-x-2">
+                    <div className="flex flex-col gap-2 sm:flex-row">
                       {cert.status === "completed" ? (
                         <>
-                          <button className="flex items-center space-x-2 px-4 py-2 border rounded-md hover:bg-gray-50">
+                          <button className="flex items-center justify-center gap-2 rounded-md border px-4 py-2 hover:bg-gray-50">
                             <Download className="h-4 w-4" />
                             <span>Download</span>
                           </button>
-                          <button className="flex items-center space-x-2 px-4 py-2 border rounded-md hover:bg-gray-50">
+                          <button className="flex items-center justify-center gap-2 rounded-md border px-4 py-2 hover:bg-gray-50">
                             <ExternalLink className="h-4 w-4" />
                             <span>Share</span>
                           </button>
                         </>
                       ) : (
-                        <button className="px-4 py-2 bg-[#0056D2] text-white rounded-md hover:bg-blue-700">
+                        <button className="rounded-md bg-[#0056D2] px-4 py-2 text-white hover:bg-blue-700">
                           Continue Learning
                         </button>
                       )}
                     </div>
                   </div>
-                  <div className="mt-4 grid grid-cols-3 gap-4">
+                  <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <div>
                       <p className="text-sm text-gray-500">Issue Date</p>
                       <p className="font-medium">{cert.issueDate}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Credentail ID</p>
+                      <p className="text-sm text-gray-500">Credential ID</p>
                       <p className="font-medium">{cert.credentialID}</p>
                     </div>
                     <div>
@@ -200,8 +200,8 @@ const index = () => {
                     </div>
                   )}
                   <div className="mt-4 flex flex-wrap gap-2">
-                    {cert.skills.map((skill,index)=>(
-                        <span key={index} className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-sm">{skill}</span>
+                    {cert.skills.map((skill, index) => (
+                        <span key={index} className="rounded-full bg-blue-50 px-3 py-1 text-sm text-blue-600">{skill}</span>
                     ))}
                   </div>
                 </div>

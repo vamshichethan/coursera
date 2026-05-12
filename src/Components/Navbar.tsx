@@ -1,4 +1,4 @@
-import { BookOpen, ChevronDown, Globe, Search } from "lucide-react";
+import { BookOpen, ChevronDown, Globe, Menu, Search, X } from "lucide-react";
 import Link from "next/link";
 import React, { useState } from "react";
 
@@ -13,6 +13,7 @@ const Navbar = () => {
   const [isexploremenuopen, setisexploremenuopen] = useState(false);
   const [isdegreemenuopen, setisdegreemenuopen] = useState(false);
   const [isusermenuopen, setisusermenuopen] = useState(false);
+  const [ismobilemenuopen, setismobilemenuopen] = useState(false);
   const topNav = [
     "For Individuals",
     "For Businesses",
@@ -87,14 +88,14 @@ const Navbar = () => {
   };
   return (
     <>
-      <div className="bg-[#1F2937] text-white">
+      <div className="hidden bg-[#1F2937] text-white md:block">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex justify-between items-center py-2">
             <div className="flex items-center space-x-4">
               <Globe className="h-4 w-4 text-gray-400" />
               <span className="text-sm text-gray-300">English</span>
             </div>
-            <div className="flex space-x-6">
+            <div className="flex flex-wrap justify-end gap-x-6 gap-y-1">
               {topNav.map((item, index) => (
                 <a
                   key={index}
@@ -110,8 +111,8 @@ const Navbar = () => {
       </div>
       <div className="border-b sticky top-0 bg-white z-50">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-6">
+          <div className="flex min-h-16 items-center justify-between gap-4 py-3 lg:h-16 lg:py-0">
+            <div className="flex min-w-0 flex-1 items-center space-x-4 lg:space-x-6">
               <div className="flex items-center text-[#0056D2] cursor-pointer">
                 <BookOpen className="h-8 w-8" />
                 <span className="ml-2 font-bold text-xl tracking-tight">
@@ -119,7 +120,7 @@ const Navbar = () => {
                 </span>
               </div>
 
-              <div className="relative">
+              <div className="relative hidden lg:block">
                 <button
                   className="text-[#0056D2] font-semibold flex items-center hover:opacity-80 transition-opacity"
                   onClick={() => {
@@ -135,7 +136,7 @@ const Navbar = () => {
                   />
                 </button>
                 {isexploremenuopen && (
-                  <div className="absolute top-full left-0 w-[600px] bg-white shadow-lg rounded-md mt-2 p-6 grid grid-cols-2 gap-8">
+                  <div className="absolute top-full left-0 w-[min(600px,calc(100vw-2rem))] bg-white shadow-lg rounded-md mt-2 p-6 grid grid-cols-2 gap-8">
                     {exploreMenuItems.map((section, index) => (
                       <div key={index}>
                         <h3 className="font-semibold text-gray-900 mb-4">
@@ -159,11 +160,11 @@ const Navbar = () => {
                 )}
               </div>
 
-              <div className="relative">
+              <div className="relative hidden flex-1 md:block">
                 <input
                   type="text"
                   placeholder="What do you want to learn?"
-                  className={`w-[400px] pl-10 pr-4 py-2 border rounded-sm transition-all duration-200 ${
+                  className={`w-full min-w-[220px] max-w-[400px] pl-10 pr-4 py-2 border rounded-sm transition-all duration-200 ${
                     issearchfocused
                       ? "border-[#0056D2] shadow-sm"
                       : "border-gray-300"
@@ -178,7 +179,7 @@ const Navbar = () => {
                 />
               </div>
             </div>
-            <div className="flex items-center space-x-6">
+            <div className="hidden items-center space-x-4 lg:flex xl:space-x-6">
               <div className="relative">
                 <button
                   className="text-[#0056D2] font-semibold hover:opacity-80 transition-opacity flex items-center"
@@ -291,8 +292,68 @@ const Navbar = () => {
                 </>
               )}
             </div>
+            <button
+              className="inline-flex h-10 w-10 items-center justify-center rounded-sm border border-gray-300 text-gray-700 lg:hidden"
+              onClick={() => {
+                setismobilemenuopen(!ismobilemenuopen);
+                setisexploremenuopen(false);
+                setisdegreemenuopen(false);
+              }}
+              aria-label="Toggle navigation menu"
+            >
+              {ismobilemenuopen ? (
+                <X className="h-5 w-5" />
+              ) : (
+                <Menu className="h-5 w-5" />
+              )}
+            </button>
           </div>
         </div>
+        {ismobilemenuopen && (
+          <div className="border-t bg-white lg:hidden">
+            <div className="mx-auto max-w-7xl space-y-4 px-4 py-4">
+              <div className="relative md:hidden">
+                <input
+                  type="text"
+                  placeholder="What do you want to learn?"
+                  className="w-full rounded-sm border border-gray-300 py-2 pl-10 pr-4"
+                  onFocus={() => setissearchfocused(true)}
+                  onBlur={() => setissearchfocused(false)}
+                />
+                <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+              </div>
+              <div className="grid gap-3 text-sm">
+                <a href="#" className="font-semibold text-[#0056D2]">
+                  Explore
+                </a>
+                <a href="#" className="font-semibold text-[#0056D2]">
+                  Online Degree
+                </a>
+                {topNav.map((item) => (
+                  <a key={item} href="#" className="text-gray-700">
+                    {item}
+                  </a>
+                ))}
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <button
+                  onClick={handlegooglesignin}
+                  className="flex items-center justify-center space-x-2 rounded-sm border border-gray-300 bg-white px-4 py-2 font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  <img
+                    src="https://www.google.com/favicon.ico"
+                    alt="google"
+                    className="h-4 w-4"
+                  />
+                  <span>Sign in with Google</span>
+                </button>
+                <button className="rounded-sm bg-[#0056D2] px-4 py-2 font-semibold text-white hover:bg-blue-700">
+                  Join for Free
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

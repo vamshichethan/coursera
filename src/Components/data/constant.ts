@@ -5,6 +5,7 @@ export interface Course {
   title: string;
   provider: string;
   type: string;
+  tags: string[];
   image: string;
   rating: string;
   students: string;
@@ -48,6 +49,7 @@ export const courses: Course[] = [
     title: "Microsoft Front-End Developer",
     provider: "Microsoft",
     type: "Professional Certificate",
+    tags: ["Programming", "Design"],
     image:
       "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=800&h=600",
     rating: "4.7",
@@ -141,6 +143,7 @@ export const courses: Course[] = [
     title: "Microsoft Back-End Developer",
     provider: "Microsoft",
     type: "Professional Certificate",
+    tags: ["Programming", "Data Science"],
     image:
       "https://images.unsplash.com/photo-1555685812-4b943f1cb0eb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=800&h=600",
     rating: "4.8",
@@ -223,6 +226,7 @@ export const courses: Course[] = [
     title: "Microsoft Full-Stack Developer",
     provider: "Microsoft",
     type: "Professional Certificate",
+    tags: ["Programming", "Design", "AI/ML"],
     image:
       "https://images.unsplash.com/photo-1516259762381-22954d7d3ad2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=800&h=600",
     rating: "4.9",
@@ -306,6 +310,7 @@ export const courses: Course[] = [
     title: "Microsoft Project Management",
     provider: "Microsoft",
     type: "Professional Certificate",
+    tags: ["Business", "Marketing"],
     image: "https://images.unsplash.com/photo-1556742502-ec7c0e9f34b1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=800&h=600",
     rating: "4.7",
     students: "600K+ learners",
@@ -385,4 +390,3 @@ export const courses: Course[] = [
     ],
   },
 ];
-

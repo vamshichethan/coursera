@@ -55,20 +55,20 @@ function CourseDetails() {
   if (showmodulepage) {
     return (
       <div className="min-h-screen bg-white flex flex-col">
-        <header className="bg-white border-b border-gray-200 py-4 px-6 flex items-center">
+        <header className="flex flex-col gap-3 border-b border-gray-200 bg-white px-4 py-4 sm:flex-row sm:items-center sm:px-6">
           <button
             onClick={handlebackclick}
-            className="flex items-center text-gray-700 hover:text-blue-600 transition-colors mr-4"
+            className="mr-0 flex items-center text-gray-700 transition-colors hover:text-blue-600 sm:mr-4"
           >
             <ArrowLeft className="h-5 w-5 mr-2" />
             <span className="font-medium">Back to Courses</span>
           </button>
-          <h1 className="text-xl font-semibold text-gray-800 ml-2">
+          <h1 className="ml-0 text-lg font-semibold text-gray-800 sm:ml-2 sm:text-xl">
             {course.title}
           </h1>
         </header>
-        <div className="flex flex-1 overflow-hidden">
-          <div className="w-80 border-r border-gray-200 h-full overflow-y-auto flex-shrink-0">
+        <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
+          <div className="w-full flex-shrink-0 border-b border-gray-200 lg:h-full lg:w-80 lg:overflow-y-auto lg:border-b-0 lg:border-r">
             <div className="p-4 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-800">
                 Course Modules
@@ -77,12 +77,12 @@ function CourseDetails() {
                 Module {selectedmoduleindex + 1} of {course.modules.length}
               </p>
             </div>
-            <nav className="py-2">
+            <nav className="flex gap-2 overflow-x-auto p-2 lg:block lg:overflow-visible lg:p-0 lg:py-2">
               {course.modules.map((module, index) => (
                 <button
                   key={index}
                   onClick={() => setselectedmoduleindex(index)}
-                  className={`w-full text-left p-4 hover:bg-gray-50 transition-colors ${
+                  className={`min-w-[260px] rounded-md p-4 text-left transition-colors hover:bg-gray-50 lg:w-full lg:min-w-0 lg:rounded-none ${
                     selectedmoduleindex === index ? "bg-blue-50" : ""
                   }`}
                 >
@@ -116,13 +116,13 @@ function CourseDetails() {
             </nav>
           </div>
 
-          <div className="flex-1 h-full overflow-y-auto bg-gray-50">
-            <div className="max-w-full mx-auto p-6">
-              <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-                <h2 className="text-2xl font-bold text-gray-800 mb-2">
+          <div className="h-full flex-1 overflow-y-auto bg-gray-50">
+            <div className="mx-auto max-w-full p-4 sm:p-6">
+              <div className="mb-6 rounded-xl bg-white p-4 shadow-sm sm:p-6">
+                <h2 className="mb-2 text-xl font-bold text-gray-800 sm:text-2xl">
                   {Module.title}
                 </h2>
-                <div className="flex gap-4 mb-6">
+                <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:gap-4">
                   <span className="text-sm text-gray-600 flex items-center">
                     <Star className="h-4 w-4 mr-1" />
                     {Module.duration}
@@ -133,7 +133,7 @@ function CourseDetails() {
                   </span>
                 </div>
 
-                <div className="flex justify-between mb-6">
+                <div className="mb-6 flex flex-col justify-between gap-3 sm:flex-row">
                   <button
                     onClick={() =>
                       setselectedmoduleindex(
@@ -141,7 +141,7 @@ function CourseDetails() {
                       )
                     }
                     disabled={selectedmoduleindex === 0}
-                    className={`px-4 py-2 rounded-md flex items-center ${
+                    className={`flex items-center justify-center rounded-md px-4 py-2 ${
                       selectedmoduleindex === 0
                         ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                         : "bg-gray-200 text-gray-700 hover:bg-gray-300"
@@ -160,7 +160,7 @@ function CourseDetails() {
                       )
                     }
                     disabled={selectedmoduleindex === course.modules.length - 1}
-                    className={`px-4 py-2 rounded-md flex items-center ${
+                    className={`flex items-center justify-center rounded-md px-4 py-2 ${
                       selectedmoduleindex === course.modules.length - 1
                         ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                         : "bg-blue-600 text-white hover:bg-blue-700"
@@ -177,7 +177,7 @@ function CourseDetails() {
                 )}
               </div>
 
-              <div className="bg-white rounded-xl shadow-sm p-6">
+              <div className="rounded-xl bg-white p-4 shadow-sm sm:p-6">
                 <h3 className="text-xl font-semibold mb-4">
                   About this module
                 </h3>
@@ -186,7 +186,7 @@ function CourseDetails() {
                 <h4 className="font-medium text-gray-800 mb-4">
                   Module Details
                 </h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <div className="flex items-center mb-2">
                       <Clock className="h-5 w-5 text-blue-600 mr-2" />
@@ -244,8 +244,8 @@ function CourseDetails() {
       {/* Sticky Navigation Bar */}
       <div className="sticky top-0 bg-white border-b z-50">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-8">
+          <div className="flex min-h-16 flex-col gap-3 py-3 md:flex-row md:items-center md:justify-between md:py-0">
+            <div className="flex max-w-full items-center gap-5 overflow-x-auto text-sm md:gap-8 md:text-base">
               <a
                 href="#overview"
                 className="text-gray-700 hover:text-[#0056D2]"
@@ -272,7 +272,7 @@ function CourseDetails() {
               </a>
             </div>
             <button
-              className="px-6 py-2 bg-[#0056D2] text-white font-semibold rounded-sm"
+              className="w-full rounded-sm bg-[#0056D2] px-6 py-2 font-semibold text-white md:w-auto"
               onClick={handlemoduleclick}
             >
               Enroll Now
@@ -282,11 +282,11 @@ function CourseDetails() {
       </div>
 
       {/* Course Header */}
-      <div className="bg-gradient-to-r from-gray-50 to-gray-100 py-12">
+      <div className="bg-gradient-to-r from-gray-50 to-gray-100 py-8 sm:py-12">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="flex items-start justify-between">
+          <div className="flex flex-col items-start justify-between gap-8 lg:flex-row">
             <div className="max-w-2xl">
-              <div className="flex items-center space-x-4 mb-4">
+              <div className="mb-4 flex flex-wrap items-center gap-4">
                 <div className="flex items-center">
                   <Certificate className="h-5 w-5 text-[#0056D2]" />
                   <span className="ml-1 text-gray-600">{course.type}</span>
@@ -299,11 +299,11 @@ function CourseDetails() {
                 </div>
               </div>
 
-              <h1 className="text-4xl font-bold text-gray-900 mb-4">
+              <h1 className="mb-4 text-3xl font-bold text-gray-900 sm:text-4xl">
                 {course.title}
               </h1>
 
-              <p className="text-lg text-gray-600 mb-6">
+              <p className="mb-6 text-base text-gray-600 sm:text-lg">
                 {showFullDescription
                   ? fullDescription
                   : fullDescription.slice(0, 200) + "..."}
@@ -315,7 +315,7 @@ function CourseDetails() {
                 </button>
               </p>
 
-              <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="flex items-center">
                   <Users className="h-5 w-5 text-gray-500" />
                   <span className="ml-2">{course.students}</span>
@@ -334,9 +334,9 @@ function CourseDetails() {
                 </div>
               </div>
 
-              <div className="flex items-center space-x-4 mb-8">
+              <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center">
                 <button
-                  className="px-8 py-3 bg-[#0056D2] text-white font-semibold rounded-sm hover:bg-blue-700 transition-colors"
+                  className="rounded-sm bg-[#0056D2] px-8 py-3 font-semibold text-white transition-colors hover:bg-blue-700"
                   onClick={handlemoduleclick}
                 >
                   Start Free Trial
@@ -351,9 +351,9 @@ function CourseDetails() {
                 </div>
               </div>
 
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center gap-4">
                 <Globe className="h-5 w-5 text-gray-500" />
-                <div className="flex items-center space-x-2">
+                <div className="flex flex-wrap items-center gap-x-2">
                   {course.languages.map((lang, index) => (
                     <span key={index} className="text-sm text-gray-600">
                       {lang}
@@ -364,13 +364,13 @@ function CourseDetails() {
               </div>
             </div>
 
-            <div className="w-[400px]">
-              <div className="bg-white rounded-lg shadow-xl overflow-hidden sticky top-24">
+            <div className="w-full lg:w-[400px]">
+              <div className="overflow-hidden rounded-lg bg-white shadow-xl lg:sticky lg:top-24">
                 <div className="relative">
                   <img
                     src={course.image}
                     alt="Course Preview"
-                    className="w-full h-[225px] object-cover"
+                    className="h-[210px] w-full object-cover sm:h-[225px]"
                   />
                   <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
                     <PlayCircle className="h-16 w-16 text-white cursor-pointer hover:scale-110 transition-transform" />
@@ -428,7 +428,7 @@ function CourseDetails() {
       <div className="py-12 bg-white">
         <div className="max-w-7xl mx-auto px-4">
           <h2 className="text-2xl font-bold mb-8">Career Outcomes</h2>
-          <div className="grid grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-8">
             {course.careerOutcomes.map((outcome, index) => {
               const IconComponent = outcome.icon; // Now it's already a React component
 
@@ -473,9 +473,9 @@ function CourseDetails() {
       {/* Course Content */}
       <div className="py-12 bg-white">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="flex justify-between items-center mb-8">
+          <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-2xl font-bold">Course Content</h2>
-            <div className="text-gray-600">
+            <div className="text-sm text-gray-600 sm:text-base">
               <span className="font-semibold">8</span> modules •
               <span className="font-semibold"> 180+</span> hours •
               <span className="font-semibold"> 25</span> hands-on projects
@@ -494,20 +494,20 @@ function CourseDetails() {
                   }`}
               >
                 <button
-                  className="w-full p-6 text-left"
+                  className="w-full p-4 text-left sm:p-6"
                   onClick={() =>
                     setSelectedModule(selectedModule === index ? -1 : index)
                   }
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start flex-1">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex flex-1 items-start">
                       <div className="flex-shrink-0">
                         <div className="w-8 h-8 bg-blue-50 rounded-full flex items-center justify-center text-[#0056D2] font-semibold">
                           {index + 1}
                         </div>
                       </div>
-                      <div className="ml-4">
-                        <h3 className="font-semibold text-lg mb-1">
+                      <div className="ml-3 sm:ml-4">
+                        <h3 className="mb-1 text-base font-semibold sm:text-lg">
                           {module.title}
                         </h3>
                         <p className="text-sm text-gray-500 mb-2">
@@ -524,8 +524,8 @@ function CourseDetails() {
                 </button>
 
                 {selectedModule === index && (
-                  <div className="px-6 pb-6 pt-2 border-t">
-                    <div className="grid grid-cols-4 gap-4">
+                  <div className="border-t px-4 pb-4 pt-2 sm:px-6 sm:pb-6">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                       <div className="bg-gray-50 p-4 rounded-lg">
                         <p className="text-sm text-gray-600">Duration</p>
                         <p className="font-semibold">{module.weeks} weeks</p>
@@ -559,13 +559,13 @@ function CourseDetails() {
       <div className="py-12 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4">
           <h2 className="text-2xl font-bold mb-8">Learner Success Stories</h2>
-          <div className="grid grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
             {course.testimonials.map((testimonial, index) => (
               <div
                 key={index}
                 className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow"
               >
-                <div className="flex items-start space-x-4 mb-4">
+                <div className="mb-4 flex items-start gap-4">
                   <img
                     src={testimonial.image}
                     alt={testimonial.author}
@@ -596,7 +596,7 @@ function CourseDetails() {
           <h2 className="text-2xl font-bold mb-8">
             Frequently Asked Questions
           </h2>
-          <div className="grid grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-8">
             <div className="space-y-4">
               <div className="border rounded-lg p-4">
                 <h3 className="font-semibold mb-2">
@@ -645,12 +645,12 @@ function CourseDetails() {
       </div>
 
       {/* Start Learning CTA */}
-      <div className="bg-[#0056D2] text-white py-16">
+      <div className="bg-[#0056D2] py-10 text-white sm:py-16">
         <div className="max-w-7xl mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold mb-4">
+          <h2 className="mb-4 text-2xl font-bold sm:text-3xl">
             Ready to Start Your Data Analytics Journey?
           </h2>
-          <p className="text-xl text-blue-100 mb-8">
+          <p className="mb-8 text-base text-blue-100 sm:text-xl">
             Join 1.7M+ learners and launch your career in data analytics
           </p>
           <button className="px-8 py-3 bg-white text-[#0056D2] font-semibold rounded-sm hover:bg-gray-100 transition-colors">
