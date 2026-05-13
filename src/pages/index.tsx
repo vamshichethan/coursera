@@ -9,9 +9,16 @@ import {
   Server,
   Laptop,
   Search,
+  Download,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import { Course, courses } from "@/Components/data/constant";
+import {
+  getOfflineAvailability,
+  removeOfflineCourse,
+  saveCourseForOffline,
+} from "@/utils/offlineCourses";
 
 const courseTags = [
   "Programming",
@@ -26,6 +33,11 @@ const index = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [filteredCourses, setFilteredCourses] = useState<Course[]>(courses);
+  const [offlineCourseIds, setOfflineCourseIds] = useState<string[]>([]);
+  const [offlineActionCourseId, setOfflineActionCourseId] = useState("");
+  const [isBulkOfflineAction, setIsBulkOfflineAction] = useState(false);
+  const [offlineNotice, setOfflineNotice] = useState("");
+  const [isOnline, setIsOnline] = useState(true);
 
   const certificates = [
     {
@@ -110,6 +122,92 @@ const index = () => {
     setSelectedTags([]);
   };
 
+  const refreshOfflineCourses = async () => {
+    const metadata = await getOfflineAvailability();
+    setOfflineCourseIds(metadata.map((item) => item.courseId));
+  };
+
+  const handleDownloadCourse = async (course: Course) => {
+    if (!window.navigator.onLine) {
+      setOfflineNotice("Please connect to the internet to download courses.");
+      return;
+    }
+
+    try {
+      setOfflineActionCourseId(course.id);
+      setOfflineNotice("");
+      await saveCourseForOffline(course);
+      await refreshOfflineCourses();
+      setOfflineNotice(`${course.title} is now available offline.`);
+    } catch {
+      setOfflineNotice("Unable to download this course for offline access.");
+    } finally {
+      setOfflineActionCourseId("");
+    }
+  };
+
+  const handleDownloadAllCourses = async () => {
+    if (!window.navigator.onLine) {
+      setOfflineNotice("Please connect to the internet to download courses.");
+      return;
+    }
+
+    try {
+      setIsBulkOfflineAction(true);
+      setOfflineNotice("");
+
+      for (const course of courses) {
+        await saveCourseForOffline(course);
+      }
+
+      await refreshOfflineCourses();
+      setOfflineNotice("All courses are now available offline.");
+    } catch {
+      setOfflineNotice("Unable to download all courses for offline access.");
+    } finally {
+      setIsBulkOfflineAction(false);
+    }
+  };
+
+  const handleRemoveOfflineCourse = async (course: Course) => {
+    try {
+      setOfflineActionCourseId(course.id);
+      setOfflineNotice("");
+      await removeOfflineCourse(course.id);
+      await refreshOfflineCourses();
+      setOfflineNotice(`${course.title} offline content removed.`);
+    } catch {
+      setOfflineNotice("Unable to remove offline course content.");
+    } finally {
+      setOfflineActionCourseId("");
+    }
+  };
+
+  useEffect(() => {
+    const updateOnlineStatus = () => {
+      setIsOnline(window.navigator.onLine);
+    };
+
+    updateOnlineStatus();
+    refreshOfflineCourses();
+    window.addEventListener("online", updateOnlineStatus);
+    window.addEventListener("offline", updateOnlineStatus);
+    window.addEventListener("focus", refreshOfflineCourses);
+    window.addEventListener("storage", refreshOfflineCourses);
+    window.addEventListener("offline-courses-updated", refreshOfflineCourses);
+
+    return () => {
+      window.removeEventListener("online", updateOnlineStatus);
+      window.removeEventListener("offline", updateOnlineStatus);
+      window.removeEventListener("focus", refreshOfflineCourses);
+      window.removeEventListener("storage", refreshOfflineCourses);
+      window.removeEventListener(
+        "offline-courses-updated",
+        refreshOfflineCourses
+      );
+    };
+  }, []);
+
   useEffect(() => {
     const query = searchQuery.trim().toLowerCase();
     const nextFilteredCourses = courses.filter((course) => {
@@ -127,6 +225,10 @@ const index = () => {
 
     setFilteredCourses(nextFilteredCourses);
   }, [searchQuery, selectedTags]);
+
+  const allCoursesDownloaded = courses.every((course) =>
+    offlineCourseIds.includes(course.id)
+  );
 
   return (
     <div>
@@ -260,19 +362,33 @@ const index = () => {
 
       <div className="bg-white py-10 sm:py-16">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h2 className="text-2xl font-bold mb-2">Explore Courses</h2>
               <p className="text-gray-600">
                 Search programs by title, description, or career-focused tags.
               </p>
             </div>
-            <button
-              onClick={resetFilters}
-              className="px-4 py-2 text-left font-semibold text-[#0056D2] sm:text-center"
-            >
-              Clear filters
-            </button>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <button
+                onClick={handleDownloadAllCourses}
+                disabled={isBulkOfflineAction || !isOnline || allCoursesDownloaded}
+                className="inline-flex items-center justify-center rounded-sm bg-[#0056D2] px-4 py-2 font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                {isBulkOfflineAction
+                  ? "Downloading..."
+                  : allCoursesDownloaded
+                  ? "All courses offline"
+                  : "Download all offline"}
+              </button>
+              <button
+                onClick={resetFilters}
+                className="px-4 py-2 text-left font-semibold text-[#0056D2] sm:text-center"
+              >
+                Clear filters
+              </button>
+            </div>
           </div>
 
           <div className="mb-8 rounded-sm border border-gray-200 bg-white p-4 shadow-sm">
@@ -308,43 +424,88 @@ const index = () => {
             </div>
           </div>
 
+          {offlineNotice && (
+            <div className="mb-6 rounded-sm border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+              {offlineNotice}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {filteredCourses.map((course) => (
-              <Link
-                key={course.id}
-                href={`/course/${course.id}`}
-                className="block h-full overflow-hidden rounded-sm border transition-shadow hover:shadow-lg"
-              >
-                <img
-                  src={course.image}
-                  alt={course.title}
-                  className="w-full h-40 object-cover"
-                />
-                <div className="p-4">
-                  <div className="flex items-center mb-2">
-                    <Laptop className="h-6 w-6 mr-2 text-blue-600" />
-                    <span className="text-sm text-gray-600">
-                      {course.provider}
-                    </span>
-                  </div>
-                  <h3 className="font-semibold mb-2">{course.title}</h3>
-                  <p className="text-sm text-gray-600">{course.type}</p>
-                  <p className="mt-2 text-sm leading-5 text-gray-600">
-                    {course.description}
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {course.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-[#0056D2]"
-                      >
-                        {tag}
+            {filteredCourses.map((course) => {
+              const isDownloaded = offlineCourseIds.includes(course.id);
+              const isCourseBusy =
+                offlineActionCourseId === course.id || isBulkOfflineAction;
+
+              return (
+                <article
+                  key={course.id}
+                  className="relative flex h-full flex-col overflow-hidden rounded-sm border transition-shadow hover:shadow-lg"
+                >
+                  <Link href={`/course/${course.id}`} className="block flex-1">
+                    {isDownloaded && (
+                      <span className="absolute right-3 top-3 rounded-sm bg-green-600 px-2 py-1 text-xs font-semibold text-white shadow-sm">
+                        Available Offline
                       </span>
-                    ))}
+                    )}
+                    <img
+                      src={course.image}
+                      alt={course.title}
+                      className="w-full h-40 object-cover"
+                    />
+                    <div className="p-4">
+                      <div className="flex items-center mb-2">
+                        <Laptop className="h-6 w-6 mr-2 text-blue-600" />
+                        <span className="text-sm text-gray-600">
+                          {course.provider}
+                        </span>
+                      </div>
+                      <h3 className="font-semibold mb-2">{course.title}</h3>
+                      <p className="text-sm text-gray-600">{course.type}</p>
+                      <p className="mt-2 text-sm leading-5 text-gray-600">
+                        {course.description}
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {course.tags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-[#0056D2]"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </Link>
+                  <div className="px-4 pb-4">
+                    {isDownloaded ? (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveOfflineCourse(course)}
+                        disabled={isCourseBusy}
+                        className="flex w-full items-center justify-center rounded-sm border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        {offlineActionCourseId === course.id
+                          ? "Removing..."
+                          : "Remove Offline"}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadCourse(course)}
+                        disabled={isCourseBusy || !isOnline}
+                        className="flex w-full items-center justify-center rounded-sm bg-[#0056D2] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        {offlineActionCourseId === course.id
+                          ? "Downloading..."
+                          : "Download Offline"}
+                      </button>
+                    )}
                   </div>
-                </div>
-              </Link>
-            ))}
+                </article>
+              );
+            })}
           </div>
           {filteredCourses.length === 0 && (
             <div className="rounded-sm border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-gray-600">

@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import confetti from "canvas-confetti";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Star,
   Clock,
@@ -22,39 +23,245 @@ import {
   BookOpen,
   HelpCircle,
   FileText,
+  Trash2,
 } from "lucide-react";
 import { useRouter } from "next/router";
 import { Course, courses } from "@/Components/data/constant";
 import Videolayer from "@/Components/Videolayer";
+import {
+  getOfflineAvailability,
+  getOfflineCourse,
+  removeOfflineCourse,
+  saveCourseForOffline,
+} from "@/utils/offlineCourses";
 
 function CourseDetails() {
   const [selectedModule, setSelectedModule] = useState(0);
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [selectedmoduleindex, setselectedmoduleindex] = useState(0);
   const [showmodulepage, setshowmodulepage] = useState(false);
+  const [courseCompleted, setCourseCompleted] = useState(false);
+  const [showCompletionMessage, setShowCompletionMessage] = useState(false);
+  const hasShownCompletionCelebration = useRef(false);
   const router = useRouter();
   const { id } = router.query; // Get course ID from route
   const [course, setCourse] = useState<Course | null>(null);
+  const [isOnline, setIsOnline] = useState(true);
+  const [offlineCourseIds, setOfflineCourseIds] = useState<string[]>([]);
+  const [offlineUnavailable, setOfflineUnavailable] = useState(false);
+  const [offlineAction, setOfflineAction] = useState<
+    "idle" | "downloading" | "removing"
+  >("idle");
+  const [offlineNotice, setOfflineNotice] = useState("");
+
+  const refreshOfflineMetadata = async () => {
+    const metadata = await getOfflineAvailability();
+    setOfflineCourseIds(metadata.map((item) => item.courseId));
+  };
+
   useEffect(() => {
     if (id) {
-      const foundCourse = courses.find((c) => c.id === id);
-      setCourse(foundCourse || null);
+      setCourseCompleted(false);
+      setShowCompletionMessage(false);
+      hasShownCompletionCelebration.current = false;
     }
   }, [id]);
+
+  useEffect(() => {
+    const updateOnlineStatus = () => {
+      setIsOnline(window.navigator.onLine);
+    };
+
+    updateOnlineStatus();
+    window.addEventListener("online", updateOnlineStatus);
+    window.addEventListener("offline", updateOnlineStatus);
+    window.addEventListener("offline-courses-updated", refreshOfflineMetadata);
+
+    return () => {
+      window.removeEventListener("online", updateOnlineStatus);
+      window.removeEventListener("offline", updateOnlineStatus);
+      window.removeEventListener(
+        "offline-courses-updated",
+        refreshOfflineMetadata
+      );
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!id || Array.isArray(id)) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const loadCourse = async () => {
+      await refreshOfflineMetadata();
+      setOfflineNotice("");
+
+      if (!isOnline) {
+        const offlineCourse = await getOfflineCourse(id);
+
+        if (isCancelled) {
+          return;
+        }
+
+        if (offlineCourse) {
+          setCourse(offlineCourse);
+          setOfflineUnavailable(false);
+        } else {
+          setCourse(null);
+          setOfflineUnavailable(true);
+        }
+
+        return;
+      }
+
+      const foundCourse = courses.find((c) => c.id === id);
+
+      if (!isCancelled) {
+        setCourse(foundCourse || null);
+        setOfflineUnavailable(false);
+      }
+    };
+
+    loadCourse();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [id, isOnline]);
+
+  useEffect(() => {
+    if (!courseCompleted || hasShownCompletionCelebration.current) {
+      return;
+    }
+
+    hasShownCompletionCelebration.current = true;
+    setShowCompletionMessage(true);
+
+    const duration = 4000;
+    const animationEnd = Date.now() + duration;
+    const defaults = {
+      origin: { y: 0.7 },
+      spread: 70,
+      startVelocity: 35,
+      ticks: 90,
+      zIndex: 1000,
+    };
+
+    const interval = window.setInterval(() => {
+      const timeLeft = animationEnd - Date.now();
+
+      if (timeLeft <= 0) {
+        window.clearInterval(interval);
+        return;
+      }
+
+      const particleCount = Math.round(35 * (timeLeft / duration));
+
+      confetti({
+        ...defaults,
+        particleCount,
+        origin: { x: 0.25, y: 0.7 },
+      });
+      confetti({
+        ...defaults,
+        particleCount,
+        origin: { x: 0.75, y: 0.7 },
+      });
+    }, 250);
+
+    const messageTimer = window.setTimeout(() => {
+      setShowCompletionMessage(false);
+    }, 5000);
+
+    return () => {
+      window.clearInterval(interval);
+      window.clearTimeout(messageTimer);
+    };
+  }, [courseCompleted]);
+  if (offlineUnavailable) {
+    return (
+      <div className="min-h-[50vh] bg-gray-50 px-4 py-16 text-center">
+        <div className="mx-auto max-w-xl rounded-sm border border-gray-200 bg-white p-6 shadow-sm">
+          <h1 className="mb-3 text-2xl font-bold text-gray-900">
+            Offline Content Unavailable
+          </h1>
+          <p className="text-gray-600">
+            This course is not available offline. Please connect to the internet
+            to download it.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (!course) {
     return <div className="text-center text-red-500">Course not found!</div>;
   }
   const Module = course.modules[selectedmoduleindex];
+  const isCourseOffline = offlineCourseIds.includes(course.id);
   const handlebackclick = () => {
     setshowmodulepage(false);
   };
   const handlemoduleclick = () => {
     setshowmodulepage(true);
   };
+  const handlecompletecourse = () => {
+    if (!courseCompleted) {
+      setCourseCompleted(true);
+    }
+  };
+
+  const handledownloadcourse = async () => {
+    if (!window.navigator.onLine) {
+      setOfflineNotice("Please connect to the internet to download this course.");
+      return;
+    }
+
+    try {
+      setOfflineAction("downloading");
+      setOfflineNotice("");
+      const sourceCourse = courses.find((item) => item.id === course.id) || course;
+      await saveCourseForOffline(sourceCourse);
+      await refreshOfflineMetadata();
+      setOfflineNotice("Course content is now available offline.");
+    } catch {
+      setOfflineNotice("Unable to download this course for offline access.");
+    } finally {
+      setOfflineAction("idle");
+    }
+  };
+
+  const handleremoveofflinecourse = async () => {
+    try {
+      setOfflineAction("removing");
+      await removeOfflineCourse(course.id);
+      await refreshOfflineMetadata();
+      setOfflineNotice("Offline course content removed.");
+
+      if (!window.navigator.onLine) {
+        setCourse(null);
+        setOfflineUnavailable(true);
+      }
+    } catch {
+      setOfflineNotice("Unable to remove offline course content.");
+    } finally {
+      setOfflineAction("idle");
+    }
+  };
 
   if (showmodulepage) {
+
     return (
       <div className="min-h-screen bg-white flex flex-col">
+        {showCompletionMessage && (
+          <div className="fixed left-1/2 top-6 z-[1001] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-sm border border-blue-100 bg-white px-5 py-4 text-center shadow-xl">
+            <p className="text-lg font-semibold text-gray-900">
+              Great Job! You&apos;ve completed this course!
+            </p>
+          </div>
+        )}
         <header className="flex flex-col gap-3 border-b border-gray-200 bg-white px-4 py-4 sm:flex-row sm:items-center sm:px-6">
           <button
             onClick={handlebackclick}
@@ -66,7 +273,42 @@ function CourseDetails() {
           <h1 className="ml-0 text-lg font-semibold text-gray-800 sm:ml-2 sm:text-xl">
             {course.title}
           </h1>
+          <div className="flex flex-col gap-2 sm:ml-auto sm:flex-row sm:items-center">
+            {isCourseOffline && (
+              <span className="rounded-sm bg-green-50 px-3 py-2 text-sm font-semibold text-green-700">
+                Available Offline
+              </span>
+            )}
+            {isCourseOffline ? (
+              <button
+                onClick={handleremoveofflinecourse}
+                disabled={offlineAction === "removing"}
+                className="flex items-center justify-center rounded-sm border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {offlineAction === "removing"
+                  ? "Removing..."
+                  : "Remove Offline"}
+              </button>
+            ) : (
+              <button
+                onClick={handledownloadcourse}
+                disabled={offlineAction === "downloading" || !isOnline}
+                className="flex items-center justify-center rounded-sm bg-[#0056D2] px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                {offlineAction === "downloading"
+                  ? "Downloading..."
+                  : "Download Offline"}
+              </button>
+            )}
+          </div>
         </header>
+        {offlineNotice && (
+          <div className="border-b bg-blue-50 px-4 py-2 text-sm text-blue-800">
+            {offlineNotice}
+          </div>
+        )}
         <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
           <div className="w-full flex-shrink-0 border-b border-gray-200 lg:h-full lg:w-80 lg:overflow-y-auto lg:border-b-0 lg:border-r">
             <div className="p-4 border-b border-gray-200">
@@ -150,29 +392,54 @@ function CourseDetails() {
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Previous Module
                   </button>
-                  <button
-                    onClick={() =>
-                      setselectedmoduleindex(
-                        Math.min(
-                          course.modules.length - 1,
-                          selectedmoduleindex + 1
+                  {selectedmoduleindex === course.modules.length - 1 ? (
+                    <button
+                      onClick={handlecompletecourse}
+                      disabled={courseCompleted}
+                      className={`flex items-center justify-center rounded-md px-4 py-2 ${
+                        courseCompleted
+                          ? "bg-green-50 text-green-700"
+                          : "bg-blue-600 text-white hover:bg-blue-700"
+                      }`}
+                    >
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      {courseCompleted ? "Course Completed" : "Complete Course"}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() =>
+                        setselectedmoduleindex(
+                          Math.min(
+                            course.modules.length - 1,
+                            selectedmoduleindex + 1
+                          )
                         )
-                      )
-                    }
-                    disabled={selectedmoduleindex === course.modules.length - 1}
-                    className={`flex items-center justify-center rounded-md px-4 py-2 ${
-                      selectedmoduleindex === course.modules.length - 1
-                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                        : "bg-blue-600 text-white hover:bg-blue-700"
-                    }`}
-                  >
-                    Next Module
-                    <ArrowLeft className="h-4 w-4 ml-2 transform rotate-180" />
-                  </button>
+                      }
+                      className="flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+                    >
+                      Next Module
+                      <ArrowLeft className="h-4 w-4 ml-2 transform rotate-180" />
+                    </button>
+                  )}
                 </div>
                 {Module.videoId && (
                   <div className="mb-8">
                     <Videolayer videoId={Module.videoId} title={Module.title} />
+                  </div>
+                )}
+                {!Module.videoId && course.image && (
+                  <div className="mb-4 overflow-hidden rounded-lg border border-gray-200 bg-white">
+                    <img
+                      src={course.image}
+                      alt={`${course.title} offline preview`}
+                      className="h-56 w-full object-cover sm:h-72"
+                    />
+                  </div>
+                )}
+                {!isOnline && !Module.videoId && (
+                  <div className="mb-8 rounded-sm border border-blue-100 bg-blue-50 p-4 text-sm text-blue-800">
+                    Videos are not included in offline downloads. Text lessons
+                    and images remain available.
                   </div>
                 )}
               </div>
@@ -341,6 +608,29 @@ function CourseDetails() {
                 >
                   Start Free Trial
                 </button>
+                {isCourseOffline ? (
+                  <button
+                    onClick={handleremoveofflinecourse}
+                    disabled={offlineAction === "removing"}
+                    className="flex items-center justify-center rounded-sm border border-gray-300 px-5 py-3 font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Trash2 className="mr-2 h-5 w-5" />
+                    {offlineAction === "removing"
+                      ? "Removing..."
+                      : "Remove Offline"}
+                  </button>
+                ) : (
+                  <button
+                    onClick={handledownloadcourse}
+                    disabled={offlineAction === "downloading" || !isOnline}
+                    className="flex items-center justify-center rounded-sm border border-[#0056D2] px-5 py-3 font-semibold text-[#0056D2] transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:border-gray-300 disabled:text-gray-400"
+                  >
+                    <Download className="mr-2 h-5 w-5" />
+                    {offlineAction === "downloading"
+                      ? "Downloading..."
+                      : "Download Offline"}
+                  </button>
+                )}
                 <div className="flex items-center space-x-4">
                   <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                     <BookmarkPlus className="h-6 w-6 text-gray-600" />
@@ -349,6 +639,16 @@ function CourseDetails() {
                     <Share2 className="h-6 w-6 text-gray-600" />
                   </button>
                 </div>
+              </div>
+              <div className="mb-8 flex flex-col gap-2">
+                {isCourseOffline && (
+                  <span className="w-fit rounded-sm bg-green-50 px-3 py-2 text-sm font-semibold text-green-700">
+                    Available Offline
+                  </span>
+                )}
+                {offlineNotice && (
+                  <p className="text-sm text-blue-700">{offlineNotice}</p>
+                )}
               </div>
 
               <div className="flex items-center gap-4">
