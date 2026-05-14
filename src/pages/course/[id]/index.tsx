@@ -26,6 +26,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useRouter } from "next/router";
+import CourseReminderControls from "@/Components/CourseReminderControls";
 import { Course, courses } from "@/Components/data/constant";
 import Videolayer from "@/Components/Videolayer";
 import {
@@ -34,6 +35,23 @@ import {
   removeOfflineCourse,
   saveCourseForOffline,
 } from "@/utils/offlineCourses";
+import {
+  isCourseCompleted,
+  markCourseCompleted,
+  subscribeToCourseProgressUpdates,
+} from "@/utils/courseProgress";
+import { cancelCourseReminder } from "@/utils/courseReminders";
+import {
+  recordCourseLearningActivity,
+  subscribeToStreakUpdates,
+} from "@/utils/streakTracking";
+import {
+  CourseResumeProgress,
+  formatVideoTimestamp,
+  getCourseResumeProgress,
+  getVideoResumeTimestamp,
+  subscribeToVideoProgressUpdates,
+} from "@/utils/videoProgress";
 
 function CourseDetails() {
   const [selectedModule, setSelectedModule] = useState(0);
@@ -53,6 +71,9 @@ function CourseDetails() {
     "idle" | "downloading" | "removing"
   >("idle");
   const [offlineNotice, setOfflineNotice] = useState("");
+  const [streakNotice, setStreakNotice] = useState("");
+  const [resumeProgress, setResumeProgress] =
+    useState<CourseResumeProgress | null>(null);
 
   const refreshOfflineMetadata = async () => {
     const metadata = await getOfflineAvailability();
@@ -180,6 +201,41 @@ function CourseDetails() {
       window.clearTimeout(messageTimer);
     };
   }, [courseCompleted]);
+
+  useEffect(() => {
+    if (!course) {
+      return;
+    }
+
+    const refreshCompletionState = () => {
+      setCourseCompleted(isCourseCompleted(course.id));
+    };
+
+    refreshCompletionState();
+    const unsubscribeFromProgress =
+      subscribeToCourseProgressUpdates(refreshCompletionState);
+    const unsubscribeFromUser = subscribeToStreakUpdates(refreshCompletionState);
+
+    return () => {
+      unsubscribeFromProgress();
+      unsubscribeFromUser();
+    };
+  }, [course?.id]);
+
+  useEffect(() => {
+    if (!course) {
+      setResumeProgress(null);
+      return;
+    }
+
+    const refreshResumeProgress = () => {
+      setResumeProgress(getCourseResumeProgress(course.id, course.modules));
+    };
+
+    refreshResumeProgress();
+    return subscribeToVideoProgressUpdates(refreshResumeProgress);
+  }, [course]);
+
   if (offlineUnavailable) {
     return (
       <div className="min-h-[50vh] bg-gray-50 px-4 py-16 text-center">
@@ -201,14 +257,58 @@ function CourseDetails() {
   }
   const Module = course.modules[selectedmoduleindex];
   const isCourseOffline = offlineCourseIds.includes(course.id);
+  const currentVideoStartTime = Module.videoId
+    ? getVideoResumeTimestamp(course.id, Module.videoId)
+    : 0;
+  const resumeButtonText = resumeProgress
+    ? `Resume Watching (${formatVideoTimestamp(resumeProgress.timestamp)})`
+    : "Resume Watching";
+  const refreshCurrentCourseResumeProgress = () => {
+    setResumeProgress(getCourseResumeProgress(course.id, course.modules));
+  };
+  const trackCourseActivity = () => {
+    const result = recordCourseLearningActivity(course.id);
+
+    if (result.reason === "not-logged-in") {
+      setStreakNotice("Sign in to track your daily learning streak.");
+      return;
+    }
+
+    if (result.updated) {
+      setStreakNotice(
+        `Daily learning streak updated: ${result.streak.currentStreak} day${
+          result.streak.currentStreak === 1 ? "" : "s"
+        }.`
+      );
+      return;
+    }
+
+    setStreakNotice("Today's course activity is already counted.");
+  };
   const handlebackclick = () => {
     setshowmodulepage(false);
   };
-  const handlemoduleclick = () => {
+  const openCourseModule = (moduleIndex = 0) => {
+    trackCourseActivity();
+    setselectedmoduleindex(moduleIndex);
     setshowmodulepage(true);
   };
+  const handlemoduleclick = () => {
+    openCourseModule(0);
+  };
+  const handleresumewatching = () => {
+    const latestResumeProgress = getCourseResumeProgress(
+      course.id,
+      course.modules
+    );
+
+    openCourseModule(latestResumeProgress?.moduleIndex || 0);
+  };
   const handlecompletecourse = () => {
+    trackCourseActivity();
     if (!courseCompleted) {
+      markCourseCompleted(course.id);
+      cancelCourseReminder(course.id);
       setCourseCompleted(true);
     }
   };
@@ -309,6 +409,20 @@ function CourseDetails() {
             {offlineNotice}
           </div>
         )}
+        {streakNotice && (
+          <div className="border-b bg-orange-50 px-4 py-2 text-sm text-orange-800">
+            {streakNotice}
+          </div>
+        )}
+        {!courseCompleted && (
+          <div className="border-b bg-gray-50 px-4 py-3">
+            <CourseReminderControls
+              courseId={course.id}
+              courseTitle={course.title}
+              isCompleted={courseCompleted}
+            />
+          </div>
+        )}
         <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
           <div className="w-full flex-shrink-0 border-b border-gray-200 lg:h-full lg:w-80 lg:overflow-y-auto lg:border-b-0 lg:border-r">
             <div className="p-4 border-b border-gray-200">
@@ -323,7 +437,10 @@ function CourseDetails() {
               {course.modules.map((module, index) => (
                 <button
                   key={index}
-                  onClick={() => setselectedmoduleindex(index)}
+                  onClick={() => {
+                    trackCourseActivity();
+                    setselectedmoduleindex(index);
+                  }}
                   className={`min-w-[260px] rounded-md p-4 text-left transition-colors hover:bg-gray-50 lg:w-full lg:min-w-0 lg:rounded-none ${
                     selectedmoduleindex === index ? "bg-blue-50" : ""
                   }`}
@@ -377,11 +494,12 @@ function CourseDetails() {
 
                 <div className="mb-6 flex flex-col justify-between gap-3 sm:flex-row">
                   <button
-                    onClick={() =>
+                    onClick={() => {
+                      trackCourseActivity();
                       setselectedmoduleindex(
                         Math.max(0, selectedmoduleindex - 1)
-                      )
-                    }
+                      );
+                    }}
                     disabled={selectedmoduleindex === 0}
                     className={`flex items-center justify-center rounded-md px-4 py-2 ${
                       selectedmoduleindex === 0
@@ -407,14 +525,15 @@ function CourseDetails() {
                     </button>
                   ) : (
                     <button
-                      onClick={() =>
+                      onClick={() => {
+                        trackCourseActivity();
                         setselectedmoduleindex(
                           Math.min(
                             course.modules.length - 1,
                             selectedmoduleindex + 1
                           )
-                        )
-                      }
+                        );
+                      }}
                       className="flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
                     >
                       Next Module
@@ -424,7 +543,14 @@ function CourseDetails() {
                 </div>
                 {Module.videoId && (
                   <div className="mb-8">
-                    <Videolayer videoId={Module.videoId} title={Module.title} />
+                    <Videolayer
+                      key={`${course.id}-${Module.videoId}`}
+                      videoId={Module.videoId}
+                      title={Module.title}
+                      courseId={course.id}
+                      initialTime={currentVideoStartTime}
+                      onProgressChange={refreshCurrentCourseResumeProgress}
+                    />
                   </div>
                 )}
                 {!Module.videoId && course.image && (
@@ -608,6 +734,13 @@ function CourseDetails() {
                 >
                   Start Free Trial
                 </button>
+                <button
+                  className="flex items-center justify-center rounded-sm border border-[#0056D2] px-5 py-3 font-semibold text-[#0056D2] transition-colors hover:bg-blue-50"
+                  onClick={handleresumewatching}
+                >
+                  <PlayCircle className="mr-2 h-5 w-5" />
+                  {resumeButtonText}
+                </button>
                 {isCourseOffline ? (
                   <button
                     onClick={handleremoveofflinecourse}
@@ -649,6 +782,14 @@ function CourseDetails() {
                 {offlineNotice && (
                   <p className="text-sm text-blue-700">{offlineNotice}</p>
                 )}
+                {streakNotice && (
+                  <p className="text-sm text-orange-700">{streakNotice}</p>
+                )}
+                <CourseReminderControls
+                  courseId={course.id}
+                  courseTitle={course.title}
+                  isCompleted={courseCompleted}
+                />
               </div>
 
               <div className="flex items-center gap-4">
@@ -697,6 +838,13 @@ function CourseDetails() {
                     onClick={handlemoduleclick}
                   >
                     Start Free Trial
+                  </button>
+                  <button
+                    className="mb-4 flex w-full items-center justify-center rounded-sm border border-[#0056D2] px-4 py-3 font-semibold text-[#0056D2] transition-colors hover:bg-blue-50"
+                    onClick={handleresumewatching}
+                  >
+                    <PlayCircle className="mr-2 h-5 w-5" />
+                    {resumeButtonText}
                   </button>
 
                   <div className="space-y-3 text-sm">

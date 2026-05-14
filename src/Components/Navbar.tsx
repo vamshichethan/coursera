@@ -1,13 +1,15 @@
 import { BookOpen, ChevronDown, Globe, Menu, Search, X } from "lucide-react";
 import Link from "next/link";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import {
+  clearCurrentLearningUser,
+  getCurrentLearningUser,
+  LearningUser,
+  setCurrentLearningUser,
+} from "@/utils/streakTracking";
 
 const Navbar = () => {
-  const [user, setuser] = useState<{
-    name: string;
-    email: string;
-    image: string;
-  } | null>(null);
+  const [user, setuser] = useState<LearningUser | null>(null);
   const [isloggedin, setisloggedin] = useState(false);
   const [issearchfocused, setissearchfocused] = useState(false);
   const [isexploremenuopen, setisexploremenuopen] = useState(false);
@@ -73,18 +75,31 @@ const Navbar = () => {
     { title: "Professional Degrees", count: "5+ Degrees" },
   ];
 
+  useEffect(() => {
+    const storedUser = getCurrentLearningUser();
+
+    if (storedUser) {
+      setuser(storedUser);
+      setisloggedin(true);
+    }
+  }, []);
+
   const handlegooglesignin = () => {
-    setisloggedin(true);
-    setuser({
+    const learningUser = {
       name: "John Doe",
       email: "Johnn.doe@example.com",
       image:
         "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=facearea&facepad=2&w=48&h=48&q=80",
-    });
+    };
+
+    setisloggedin(true);
+    setuser(learningUser);
+    setCurrentLearningUser(learningUser);
   };
   const handlelogout = () => {
     setisloggedin(false);
     setuser(null);
+    clearCurrentLearningUser();
   };
   return (
     <>
@@ -335,22 +350,40 @@ const Navbar = () => {
                   </a>
                 ))}
               </div>
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <button
-                  onClick={handlegooglesignin}
-                  className="flex items-center justify-center space-x-2 rounded-sm border border-gray-300 bg-white px-4 py-2 font-semibold text-gray-700 hover:bg-gray-50"
-                >
-                  <img
-                    src="https://www.google.com/favicon.ico"
-                    alt="google"
-                    className="h-4 w-4"
-                  />
-                  <span>Sign in with Google</span>
-                </button>
-                <button className="rounded-sm bg-[#0056D2] px-4 py-2 font-semibold text-white hover:bg-blue-700">
-                  Join for Free
-                </button>
-              </div>
+              {isloggedin ? (
+                <div className="grid gap-2">
+                  <Link
+                    href="/profile"
+                    className="rounded-sm border border-gray-300 px-4 py-2 text-center font-semibold text-gray-700 hover:bg-gray-50"
+                    onClick={() => setismobilemenuopen(false)}
+                  >
+                    View Profile
+                  </Link>
+                  <button
+                    onClick={handlelogout}
+                    className="rounded-sm border border-gray-300 px-4 py-2 font-semibold text-gray-700 hover:bg-gray-50"
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <button
+                    onClick={handlegooglesignin}
+                    className="flex items-center justify-center space-x-2 rounded-sm border border-gray-300 bg-white px-4 py-2 font-semibold text-gray-700 hover:bg-gray-50"
+                  >
+                    <img
+                      src="https://www.google.com/favicon.ico"
+                      alt="google"
+                      className="h-4 w-4"
+                    />
+                    <span>Sign in with Google</span>
+                  </button>
+                  <button className="rounded-sm bg-[#0056D2] px-4 py-2 font-semibold text-white hover:bg-blue-700">
+                    Join for Free
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}

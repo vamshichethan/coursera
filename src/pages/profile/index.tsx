@@ -6,10 +6,17 @@ import {
   Plus,
   Share2,
 } from "lucide-react";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import StreakBadgePanel from "@/Components/StreakBadgePanel";
+import {
+  getCurrentLearningUser,
+  getLearningStreak,
+  LearningStreakState,
+  subscribeToStreakUpdates,
+} from "@/utils/streakTracking";
 
 const index = () => {
-  const [user] = useState({
+  const profileUser = {
     name: "John Doe",
     title: "Software Engineer",
     location: "San Francisco, CA",
@@ -27,7 +34,31 @@ const index = () => {
       "Machine Learning",
       "AWS",
     ],
-  });
+  };
+  const [streak, setStreak] = useState<LearningStreakState>(() =>
+    getLearningStreak(profileUser.email)
+  );
+  const [displayUser, setDisplayUser] = useState(profileUser);
+
+  useEffect(() => {
+    const refreshStreak = () => {
+      const currentUser = getCurrentLearningUser();
+      const nextUser = currentUser
+        ? {
+            ...profileUser,
+            name: currentUser.name,
+            email: currentUser.email,
+            image: currentUser.image,
+          }
+        : profileUser;
+
+      setDisplayUser(nextUser);
+      setStreak(getLearningStreak(nextUser.email));
+    };
+
+    refreshStreak();
+    return subscribeToStreakUpdates(refreshStreak);
+  }, []);
 
   const workExperience = [
     {
@@ -78,16 +109,16 @@ const index = () => {
           <div className="mb-6 flex flex-col gap-4 md:flex-row md:justify-between">
             <div className="flex flex-col gap-4 sm:flex-row">
               <img
-                src={user.image}
+                src={displayUser.image}
                 alt=""
                 className="h-24 w-24 rounded-full object-cover"
               />
               <div>
-                <h1 className="text-2xl font-bold">{user.name}</h1>
-                <p className="text-gray-600">{user.title}</p>
+                <h1 className="text-2xl font-bold">{displayUser.name}</h1>
+                <p className="text-gray-600">{displayUser.title}</p>
                 <div className="mt-2 flex items-center gap-2 text-gray-500">
                   <MapPin className="h-4 w-4" />
-                  <span>{user.location}</span>
+                  <span>{displayUser.location}</span>
                 </div>
               </div>
             </div>
@@ -102,23 +133,25 @@ const index = () => {
               </button>
             </div>
           </div>
-          <p className="text-gray-600">{user.bio}</p>
+          <p className="text-gray-600">{displayUser.bio}</p>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
             <div className="flex items-center gap-2">
               <Building2 className="h-5 w-5 text-gray-400" />
-              <span>{user.company}</span>
+              <span>{displayUser.company}</span>
             </div>
             <div className="flex items-center gap-2">
               <GraduationCap className="h-5 w-5 text-gray-400" />
-              <span>{user.education}</span>
+              <span>{displayUser.education}</span>
             </div>
           </div>
         </div>
 
+        <StreakBadgePanel streak={streak} />
+
         <div className="bg-white rounded-lg shadow-sm p-6">
           <h2 className="text-xl font-semibold mb-4">Skills</h2>
           <div className="flex flex-wrap gap-2">
-            {user.skills.map((skill, index) => (
+            {displayUser.skills.map((skill, index) => (
               <span
                 key={index}
                 className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-sm"

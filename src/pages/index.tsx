@@ -19,6 +19,7 @@ import {
   removeOfflineCourse,
   saveCourseForOffline,
 } from "@/utils/offlineCourses";
+import { recordCourseLearningActivity } from "@/utils/streakTracking";
 
 const courseTags = [
   "Programming",
@@ -441,7 +442,11 @@ const index = () => {
                   key={course.id}
                   className="relative flex h-full flex-col overflow-hidden rounded-sm border transition-shadow hover:shadow-lg"
                 >
-                  <Link href={`/course/${course.id}`} className="block flex-1">
+                  <Link
+                    href={`/course/${course.id}`}
+                    className="block flex-1"
+                    onClick={() => recordCourseLearningActivity(course.id)}
+                  >
                     {isDownloaded && (
                       <span className="absolute right-3 top-3 rounded-sm bg-green-600 px-2 py-1 text-xs font-semibold text-white shadow-sm">
                         Available Offline
