@@ -15,7 +15,12 @@ export type CourseReminder = {
 
 const REMINDER_KEY_PREFIX = "coursera-course-reminders";
 const REMINDER_EVENT = "coursera-course-reminders-updated";
+const REMINDER_FIRED_EVENT = "coursera-course-reminder-fired";
+const REMINDER_CHECK_INTERVAL_MS = 30000;
 const activeReminderTimers = new Map<string, number>();
+const firingReminderKeys = new Set<string>();
+let reminderMonitorTimer: number | undefined;
+let reminderMonitorListenersActive = false;
 
 const hasBrowserStorage = () => typeof window !== "undefined";
 
@@ -27,6 +32,14 @@ const getReminderTimerKey = (reminder: CourseReminder) =>
 
 const notifyReminderUpdated = () => {
   window.dispatchEvent(new Event(REMINDER_EVENT));
+};
+
+const notifyReminderFired = (reminder: CourseReminder) => {
+  window.dispatchEvent(
+    new CustomEvent<CourseReminder>(REMINDER_FIRED_EVENT, {
+      detail: reminder,
+    })
+  );
 };
 
 const getAllReminderStorageKeys = () => {
@@ -73,24 +86,157 @@ const markReminderInactive = (reminder: CourseReminder) => {
   writeReminders(reminder.userId, reminders);
 };
 
-const showReminderNotification = (reminder: CourseReminder) => {
+const getNotificationOptions = (reminder: CourseReminder): NotificationOptions => ({
+  body: `Resume your course: ${reminder.courseTitle}`,
+  data: {
+    courseId: reminder.courseId,
+    url: `/course/${reminder.courseId}`,
+  },
+  icon: "/favicon.ico",
+  tag: `course-reminder-${reminder.courseId}`,
+});
+
+const showReminderNotification = async (reminder: CourseReminder) => {
   if (
     typeof window === "undefined" ||
     !("Notification" in window) ||
     Notification.permission !== "granted"
   ) {
-    return;
+    return false;
   }
 
-  const notification = new Notification("Time to continue learning!", {
-    body: `Resume your course: ${reminder.courseTitle}`,
-    tag: `course-reminder-${reminder.courseId}`,
-  });
+  const notificationOptions = getNotificationOptions(reminder);
+
+  if ("serviceWorker" in navigator) {
+    try {
+      const registration = await navigator.serviceWorker.getRegistration();
+
+      if (registration?.showNotification) {
+        await registration.showNotification(
+          "Time to continue learning!",
+          notificationOptions
+        );
+        return true;
+      }
+    } catch {
+      // Fall back to the page-level Notification API below.
+    }
+  }
+
+  const notification = new Notification(
+    "Time to continue learning!",
+    notificationOptions
+  );
 
   notification.onclick = () => {
     window.focus();
     window.location.href = `/course/${reminder.courseId}`;
   };
+
+  return true;
+};
+
+const isReminderDue = (reminder: CourseReminder) => {
+  if (!reminder.isActive || !reminder.reminderTime) {
+    return false;
+  }
+
+  const reminderTimestamp = new Date(reminder.reminderTime).getTime();
+
+  return Number.isFinite(reminderTimestamp) && reminderTimestamp <= Date.now();
+};
+
+const readRemindersFromStorageKey = (storageKey: string): CourseReminder[] => {
+  try {
+    return JSON.parse(window.localStorage.getItem(storageKey) || "[]");
+  } catch {
+    return [];
+  }
+};
+
+const fireCourseReminder = async (reminder: CourseReminder) => {
+  const timerKey = getReminderTimerKey(reminder);
+
+  if (firingReminderKeys.has(timerKey)) {
+    return;
+  }
+
+  firingReminderKeys.add(timerKey);
+
+  try {
+    const latestReminder = getCourseReminder(reminder.courseId, reminder.userId);
+
+    if (
+      !latestReminder?.isActive ||
+      latestReminder.reminderTime !== reminder.reminderTime
+    ) {
+      return;
+    }
+
+    const notificationShown = await showReminderNotification(latestReminder);
+
+    if (notificationShown) {
+      notifyReminderFired(latestReminder);
+      markReminderInactive(latestReminder);
+    }
+  } finally {
+    const timerId = activeReminderTimers.get(timerKey);
+
+    if (timerId !== undefined) {
+      window.clearTimeout(timerId);
+      activeReminderTimers.delete(timerKey);
+    }
+
+    firingReminderKeys.delete(timerKey);
+  }
+};
+
+export const checkDueCourseReminders = () => {
+  if (!hasBrowserStorage()) {
+    return;
+  }
+
+  getAllReminderStorageKeys().forEach((storageKey) => {
+    readRemindersFromStorageKey(storageKey)
+      .filter(isReminderDue)
+      .forEach((reminder) => {
+        void fireCourseReminder(reminder);
+      });
+  });
+};
+
+const handleReminderWakeup = () => {
+  checkDueCourseReminders();
+};
+
+const handleReminderVisibilityChange = () => {
+  if (document.visibilityState === "visible") {
+    checkDueCourseReminders();
+  }
+};
+
+const startCourseReminderMonitor = () => {
+  if (!hasBrowserStorage()) {
+    return;
+  }
+
+  if (reminderMonitorTimer === undefined) {
+    reminderMonitorTimer = window.setInterval(
+      checkDueCourseReminders,
+      REMINDER_CHECK_INTERVAL_MS
+    );
+  }
+
+  if (!reminderMonitorListenersActive) {
+    window.addEventListener("focus", handleReminderWakeup);
+    window.addEventListener("online", handleReminderWakeup);
+    window.addEventListener("pageshow", handleReminderWakeup);
+    document.addEventListener(
+      "visibilitychange",
+      handleReminderVisibilityChange
+    );
+    reminderMonitorListenersActive = true;
+  }
 };
 
 export const getCourseReminders = (userId?: string): CourseReminder[] => {
@@ -211,7 +357,7 @@ export const clearCourseReminderTimer = (userId: string, courseId: string) => {
   const timerKey = `${userId.trim().toLowerCase()}:${courseId}`;
   const timerId = activeReminderTimers.get(timerKey);
 
-  if (timerId) {
+  if (timerId !== undefined) {
     window.clearTimeout(timerId);
     activeReminderTimers.delete(timerKey);
   }
@@ -220,6 +366,22 @@ export const clearCourseReminderTimer = (userId: string, courseId: string) => {
 export const clearAllCourseReminderTimers = () => {
   activeReminderTimers.forEach((timerId) => window.clearTimeout(timerId));
   activeReminderTimers.clear();
+
+  if (reminderMonitorTimer !== undefined) {
+    window.clearInterval(reminderMonitorTimer);
+    reminderMonitorTimer = undefined;
+  }
+
+  if (hasBrowserStorage() && reminderMonitorListenersActive) {
+    window.removeEventListener("focus", handleReminderWakeup);
+    window.removeEventListener("online", handleReminderWakeup);
+    window.removeEventListener("pageshow", handleReminderWakeup);
+    document.removeEventListener(
+      "visibilitychange",
+      handleReminderVisibilityChange
+    );
+    reminderMonitorListenersActive = false;
+  }
 };
 
 export const scheduleCourseReminder = (reminder: CourseReminder) => {
@@ -230,7 +392,7 @@ export const scheduleCourseReminder = (reminder: CourseReminder) => {
   const timerKey = getReminderTimerKey(reminder);
   const existingTimerId = activeReminderTimers.get(timerKey);
 
-  if (existingTimerId) {
+  if (existingTimerId !== undefined) {
     window.clearTimeout(existingTimerId);
   }
 
@@ -241,9 +403,7 @@ export const scheduleCourseReminder = (reminder: CourseReminder) => {
   }
 
   const timerId = window.setTimeout(() => {
-    showReminderNotification(reminder);
-    markReminderInactive(reminder);
-    activeReminderTimers.delete(timerKey);
+    void fireCourseReminder(reminder);
   }, Math.max(0, delay));
 
   activeReminderTimers.set(timerKey, timerId);
@@ -251,16 +411,18 @@ export const scheduleCourseReminder = (reminder: CourseReminder) => {
 
 export const activateStoredCourseReminders = () => {
   getAllReminderStorageKeys().forEach((storageKey) => {
-    try {
-      const reminders: CourseReminder[] = JSON.parse(
-        window.localStorage.getItem(storageKey) || "[]"
-      );
+    readRemindersFromStorageKey(storageKey).forEach((reminder) => {
+      if (isReminderDue(reminder)) {
+        void fireCourseReminder(reminder);
+        return;
+      }
 
-      reminders.forEach(scheduleCourseReminder);
-    } catch {
-      // Ignore malformed reminder data so the app can keep running.
-    }
+      scheduleCourseReminder(reminder);
+    });
   });
+
+  startCourseReminderMonitor();
+  checkDueCourseReminders();
 };
 
 export const subscribeToCourseReminderUpdates = (callback: () => void) => {
@@ -270,5 +432,19 @@ export const subscribeToCourseReminderUpdates = (callback: () => void) => {
   return () => {
     window.removeEventListener(REMINDER_EVENT, callback);
     window.removeEventListener("storage", callback);
+  };
+};
+
+export const subscribeToCourseReminderFired = (
+  callback: (reminder: CourseReminder) => void
+) => {
+  const handleReminderFired = (event: Event) => {
+    callback((event as CustomEvent<CourseReminder>).detail);
+  };
+
+  window.addEventListener(REMINDER_FIRED_EVENT, handleReminderFired);
+
+  return () => {
+    window.removeEventListener(REMINDER_FIRED_EVENT, handleReminderFired);
   };
 };
