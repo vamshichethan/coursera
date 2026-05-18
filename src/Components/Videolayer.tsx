@@ -9,6 +9,7 @@ type VideolayerProps = {
   videoId: string;
   title: string;
   courseId?: string;
+  progressVideoId?: string;
   initialTime?: number;
   onProgressChange?: () => void;
 };
@@ -86,6 +87,7 @@ const Videolayer = ({
   videoId,
   title,
   courseId,
+  progressVideoId,
   initialTime = 0,
   onProgressChange,
 }: VideolayerProps) => {
@@ -94,6 +96,7 @@ const Videolayer = ({
   const progressTimerRef = useRef<number | null>(null);
   const hasSeekedToInitialTime = useRef(false);
   const normalizedVideoId = getNormalizedVideoId(videoId);
+  const storageVideoId = progressVideoId || videoId;
   const playerElementId = useMemo(
     () => `youtube-player-${Math.random().toString(36).slice(2)}`,
     []
@@ -101,32 +104,36 @@ const Videolayer = ({
   const [resumeLabel, setResumeLabel] = useState("");
 
   const clearProgressTimer = () => {
-    if (progressTimerRef.current) {
+    if (progressTimerRef.current !== null) {
       window.clearInterval(progressTimerRef.current);
       progressTimerRef.current = null;
     }
   };
 
   const saveCurrentProgress = () => {
-    if (!courseId || !videoId || !playerRef.current) {
+    if (!courseId || !storageVideoId || !playerRef.current) {
       return;
     }
 
-    const timestamp = playerRef.current.getCurrentTime();
-    const duration = playerRef.current.getDuration();
-    saveVideoProgress(courseId, videoId, timestamp, duration);
-    onProgressChange?.();
+    try {
+      const timestamp = playerRef.current.getCurrentTime();
+      const duration = playerRef.current.getDuration();
+      saveVideoProgress(courseId, storageVideoId, timestamp, duration);
+      onProgressChange?.();
+    } catch {
+      // The YouTube iframe can throw while it is being replaced between modules.
+    }
   };
 
   useEffect(() => {
-    if (!courseId || !videoId) {
+    if (!courseId || !storageVideoId) {
       setResumeLabel("");
       return;
     }
 
-    const savedTimestamp = getVideoResumeTimestamp(courseId, videoId);
+    const savedTimestamp = getVideoResumeTimestamp(courseId, storageVideoId);
     setResumeLabel(savedTimestamp > 0 ? `Resuming from ${savedTimestamp}s` : "");
-  }, [courseId, videoId]);
+  }, [courseId, storageVideoId]);
 
   useEffect(() => {
     if (!containerRef.current || !normalizedVideoId) {
@@ -156,7 +163,11 @@ const Videolayer = ({
             playerRef.current = event.target;
 
             if (initialTime > 0 && !hasSeekedToInitialTime.current) {
-              event.target.seekTo(Math.floor(initialTime), true);
+              try {
+                event.target.seekTo(Math.floor(initialTime), true);
+              } catch {
+                // Ignore seek failures from a player that is still warming up.
+              }
               hasSeekedToInitialTime.current = true;
             }
           },
@@ -177,13 +188,18 @@ const Videolayer = ({
             }
 
             if (event.data === youtubeApi.PlayerState.ENDED) {
-              saveVideoProgress(
-                courseId || "",
-                videoId,
-                event.target.getDuration(),
-                event.target.getDuration()
-              );
-              onProgressChange?.();
+              try {
+                const duration = event.target.getDuration();
+                saveVideoProgress(
+                  courseId || "",
+                  storageVideoId,
+                  duration,
+                  duration
+                );
+                onProgressChange?.();
+              } catch {
+                // The player may already be torn down if the user switched modules.
+              }
               clearProgressTimer();
             }
           },
@@ -197,10 +213,14 @@ const Videolayer = ({
       isMounted = false;
       saveCurrentProgress();
       clearProgressTimer();
-      playerRef.current?.destroy();
+      try {
+        playerRef.current?.destroy();
+      } catch {
+        // A destroyed iframe should not break the course page.
+      }
       playerRef.current = null;
     };
-  }, [normalizedVideoId, initialTime, courseId, videoId]);
+  }, [normalizedVideoId, initialTime, courseId, videoId, storageVideoId]);
 
   return (
     <div className="w-full aspect-video rounded-lg overflow-hidden shadow-lg">

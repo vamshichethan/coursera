@@ -51,6 +51,12 @@ export const getVideoProgressKey = (
     videoId
   )}`;
 
+export const getModuleProgressVideoId = (
+  courseId: string,
+  moduleIndex: number,
+  videoId: string
+) => `${courseId}-module-${moduleIndex}-${videoId}`;
+
 const isAlmostComplete = (timestamp: number, duration: number) => {
   if (!duration) {
     return false;
@@ -164,7 +170,14 @@ export const getCourseResumeProgress = (
         return null;
       }
 
-      const progress = getVideoProgress(courseId, module.videoId, userId);
+      const moduleProgressVideoId = getModuleProgressVideoId(
+        courseId,
+        moduleIndex,
+        module.videoId
+      );
+      const progress =
+        getVideoProgress(courseId, moduleProgressVideoId, userId) ||
+        getVideoProgress(courseId, module.videoId, userId);
 
       if (!progress || !progress.timestamp) {
         return null;

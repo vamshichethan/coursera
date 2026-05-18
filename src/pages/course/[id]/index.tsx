@@ -49,6 +49,7 @@ import {
   CourseResumeProgress,
   formatVideoTimestamp,
   getCourseResumeProgress,
+  getModuleProgressVideoId,
   getVideoResumeTimestamp,
   subscribeToVideoProgressUpdates,
 } from "@/utils/videoProgress";
@@ -63,6 +64,15 @@ function CourseDetails() {
   const hasShownCompletionCelebration = useRef(false);
   const router = useRouter();
   const { id } = router.query; // Get course ID from route
+  const routeCourseId =
+    typeof id === "string"
+      ? id
+      : router.asPath
+          .split("?")[0]
+          .split("#")[0]
+          .split("/")
+          .filter(Boolean)
+          .pop();
   const [course, setCourse] = useState<Course | null>(null);
   const [isOnline, setIsOnline] = useState(true);
   const [offlineCourseIds, setOfflineCourseIds] = useState<string[]>([]);
@@ -81,12 +91,12 @@ function CourseDetails() {
   };
 
   useEffect(() => {
-    if (id) {
+    if (routeCourseId) {
       setCourseCompleted(false);
       setShowCompletionMessage(false);
       hasShownCompletionCelebration.current = false;
     }
-  }, [id]);
+  }, [routeCourseId]);
 
   useEffect(() => {
     const updateOnlineStatus = () => {
@@ -109,7 +119,7 @@ function CourseDetails() {
   }, []);
 
   useEffect(() => {
-    if (!id || Array.isArray(id)) {
+    if (!routeCourseId) {
       return;
     }
 
@@ -120,7 +130,7 @@ function CourseDetails() {
       setOfflineNotice("");
 
       if (!isOnline) {
-        const offlineCourse = await getOfflineCourse(id);
+        const offlineCourse = await getOfflineCourse(routeCourseId);
 
         if (isCancelled) {
           return;
@@ -137,7 +147,7 @@ function CourseDetails() {
         return;
       }
 
-      const foundCourse = courses.find((c) => c.id === id);
+      const foundCourse = courses.find((c) => c.id === routeCourseId);
 
       if (!isCancelled) {
         setCourse(foundCourse || null);
@@ -150,7 +160,7 @@ function CourseDetails() {
     return () => {
       isCancelled = true;
     };
-  }, [id, isOnline]);
+  }, [routeCourseId, isOnline]);
 
   useEffect(() => {
     if (!courseCompleted || hasShownCompletionCelebration.current) {
@@ -257,8 +267,11 @@ function CourseDetails() {
   }
   const Module = course.modules[selectedmoduleindex];
   const isCourseOffline = offlineCourseIds.includes(course.id);
+  const currentProgressVideoId = Module.videoId
+    ? getModuleProgressVideoId(course.id, selectedmoduleindex, Module.videoId)
+    : "";
   const currentVideoStartTime = Module.videoId
-    ? getVideoResumeTimestamp(course.id, Module.videoId)
+    ? getVideoResumeTimestamp(course.id, currentProgressVideoId)
     : 0;
   const resumeButtonText = resumeProgress
     ? `Resume Watching (${formatVideoTimestamp(resumeProgress.timestamp)})`
@@ -544,10 +557,11 @@ function CourseDetails() {
                 {Module.videoId && (
                   <div className="mb-8">
                     <Videolayer
-                      key={`${course.id}-${Module.videoId}`}
+                      key={`${course.id}-${selectedmoduleindex}-${Module.videoId}`}
                       videoId={Module.videoId}
                       title={Module.title}
                       courseId={course.id}
+                      progressVideoId={currentProgressVideoId}
                       initialTime={currentVideoStartTime}
                       onProgressChange={refreshCurrentCourseResumeProgress}
                     />
